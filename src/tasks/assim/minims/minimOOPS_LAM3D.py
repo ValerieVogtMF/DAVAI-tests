@@ -190,48 +190,48 @@ class Minim(Task, DavaiIALTaskMixin, IncludesTaskMixin):
             #-------------------------------------------------------------------------------
             self._wrapped_input(
                 role           = 'OOPSObjectsNamelists',
-                binary         = 'arpifs',
+                binary         = 'arome',
                 format         = 'ascii',
-                genv           = self.conf.davaienv,
+                genv           = self.conf.appenv,
                 kind           = 'namelist',
                 local          = 'naml_[object]',
                 object         = ['observations_tlad','standard_geometry','bmatrix',
                                   'write_analysis', 'oops_write_spec'],
-                source         = 'OOPS_ARO/naml_[object]',
+                source         = 'objects/naml_[object]',
             )
             #-------------------------------------------------------------------------------
             self._wrapped_input(
                 role           = 'OOPSGomNamelists',
-                binary         = 'arpifs',
+                binary         = 'arome',
                 format         = 'ascii',
-                genv           = self.conf.davaienv,
+                genv           = self.conf.appenv,
                 kind           = 'namelist',
                 local          = 'namelist_[object]',
                 object         = ['gom_setup', 'gom_setup_hres'],
-                source         = 'OOPS_ARO/namelist_[object]',
+                source         = 'objects/namelist_[object]',
             )
             #-------------------------------------------------------------------------------
             self._wrapped_input(
                 role           = 'OOPSModelObjectsNamelists',
-                binary         = 'arpifs',
+                binary         = 'arome',
                 format         = 'ascii',
-                genv           = self.conf.davaienv,
+                genv           = self.conf.appenv,
                 intent         = 'inout',
                 kind           = 'namelist',
                 local          = 'naml_[object]',
                 object         = ['nonlinear_model', 'linear_model', 'traj_model'],
-                source         = 'OOPS_ARO/naml_[object]',
+                source         = 'objects/naml_[object]',
             )
             #-------------------------------------------------------------------------------
             tbnam_leftovers = self._wrapped_input(
                 role           = 'NamelistLeftovers',
-                binary         = 'arpifs',
+                binary         = 'arome',
                 format         = 'ascii',
-                genv           = self.conf.davaienv,
+                genv           = self.conf.appenv,
                 intent         = 'inout',
                 kind           = 'namelist',
                 local          = 'fort.4',
-                source         = 'OOPS_ARO/namelist_oops_leftovers',
+                source         = 'objects/namelist_oops_leftovers',
             )
             #-------------------------------------------------------------------------------
 
