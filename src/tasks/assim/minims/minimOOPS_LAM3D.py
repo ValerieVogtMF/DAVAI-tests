@@ -195,8 +195,8 @@ class Minim(Task, DavaiIALTaskMixin, IncludesTaskMixin):
                 genv           = self.conf.appenv,
                 kind           = 'namelist',
                 local          = 'naml_[object]',
-                object         = ['observations_tlad','standard_geometry','bmatrix',
-                                  'write_analysis', 'oops_write_spec'],
+                object         = ['observations_aro','standard_geometry','bmatrix_aro',
+                                  'write_analysis_aro'],
                 source         = 'objects/naml_[object]',
             )
             #-------------------------------------------------------------------------------
@@ -208,7 +208,7 @@ class Minim(Task, DavaiIALTaskMixin, IncludesTaskMixin):
                 kind           = 'namelist',
                 local          = 'namelist_[object]',
                 object         = ['gom_setup', 'gom_setup_hres'],
-                source         = 'objects/namelist_[object]',
+                source         = 'objects/naml_[object]',
             )
             #-------------------------------------------------------------------------------
             self._wrapped_input(
@@ -219,7 +219,7 @@ class Minim(Task, DavaiIALTaskMixin, IncludesTaskMixin):
                 intent         = 'inout',
                 kind           = 'namelist',
                 local          = 'naml_[object]',
-                object         = ['nonlinear_model', 'linear_model', 'traj_model'],
+                object         = ['nonlinear_model_3dv_aro', 'linear_model_aro', 'traj_model_3dv_aro'],
                 source         = 'objects/naml_[object]',
             )
             #-------------------------------------------------------------------------------
@@ -231,7 +231,7 @@ class Minim(Task, DavaiIALTaskMixin, IncludesTaskMixin):
                 intent         = 'inout',
                 kind           = 'namelist',
                 local          = 'fort.4',
-                source         = 'objects/namelist_oops_leftovers',
+                source         = 'objects/naml_leftovers_aro',
             )
             #-------------------------------------------------------------------------------
 
