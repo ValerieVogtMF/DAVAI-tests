@@ -7,16 +7,13 @@ from footprints import FPDict
 import vortex
 from vortex import toolbox
 from vortex.layout.nodes import Task
-from common.util.hooks import update_namelist
-from common.util.hooks import arpifs_obs_error_correl_legacy2oops
 import davai
 
 from davai_taskutil.mixins import DavaiIALTaskMixin, IncludesTaskMixin
-from davai_taskutil.hooks import hook_fix_model, hook_gnam, hook_disable_fullpos, hook_disable_flowdependentb
+from davai_taskutil.hooks import hook_adjust_DFI, hook_gnam
 
 
-
-class MinimNoVARBC(Task, DavaiIALTaskMixin, IncludesTaskMixin):
+class ScreeningOOPS(Task, DavaiIALTaskMixin, IncludesTaskMixin):
 
     experts = [FPDict({'kind':'joTables'})] + davai.util.default_experts()
 
@@ -28,13 +25,13 @@ class MinimNoVARBC(Task, DavaiIALTaskMixin, IncludesTaskMixin):
     def obs_input_block(self):
         return '-'.join([self.conf.model,
                          self.NDVar,
-                         'screeningoops' + self._tag_suffix()])
+                         'batodb' + self._tag_suffix()])
 
     def process(self):
         self._wrapped_init()
         self._obstype_rundate_association()
         self._notify_start_inputs()
-
+        
         # 0./ Promises
         if 'early-fetch' in self.steps or 'fetch' in self.steps:
             self._wrapped_promise(**self._promised_listing())
@@ -61,11 +58,42 @@ class MinimNoVARBC(Task, DavaiIALTaskMixin, IncludesTaskMixin):
             )
             #-------------------------------------------------------------------------------
             self._wrapped_input(
+                role           = 'TelsemEmisAtlas',
+                format         = 'unknown',
+                source         = 'telsem',
+                genv           = self.conf.commonenv,
+                kind           = 'atlas_emissivity',
+                local          = 'telsem2_mw_atlas.tgz',
+            )
+            #-------------------------------------------------------------------------------
+            self._wrapped_input(
                 role           = 'MwaveRtCoef',
                 format         = 'unknown',
                 genv           = self.conf.appenv,
                 kind           = 'mwave_rtcoef',
                 local          = 'mwave_resources.tgz',
+            )
+            #-------------------------------------------------------------------------------
+            self._wrapped_input(
+                role           = 'AtlasEmissivity',
+                format         = 'unknown',
+                genv           = self.conf.commonenv,
+                instrument     = '[targetname]',
+                kind           = 'atlas_emissivity',
+                local          = 'ATLAS_[targetname:upper].BIN',
+                month          = self.conf.rundate,
+                targetname     = 'ssmis,iasi,an1,an2',
+            )
+            #-------------------------------------------------------------------------------
+            self._wrapped_input(
+                role           = 'AtlasEmissivitySeviri',
+                format         = 'unknown',
+                genv           = self.conf.appenv,
+                instrument     = '[targetname]',
+                kind           = 'atlas_emissivity',
+                local          = 'ATLAS_[targetname:upper].BIN',
+                month          = self.conf.rundate,
+                targetname     = 'seviri',
             )
             #-------------------------------------------------------------------------------
             self._wrapped_input(
@@ -90,6 +118,23 @@ class MinimNoVARBC(Task, DavaiIALTaskMixin, IncludesTaskMixin):
                 genv           = self.conf.commonenv,
                 kind           = 'rrtm',
                 local          = 'rrtm.const.tgz',
+            )
+            #-------------------------------------------------------------------------------
+            self._wrapped_input(
+                role           = 'RsBiasTables',
+                format         = 'odb',
+                genv           = self.conf.commonenv,
+                kind           = 'odbraw',
+                layout         = 'RSTBIAS,COUNTRYRSTRHBIAS,SONDETYPERSTRHBIAS',
+                local          = '[layout:upper]',
+            )
+            #-------------------------------------------------------------------------------
+            self._wrapped_input(
+                role           = 'Coefmodel',
+                format         = 'unknown',
+                genv           = self.conf.commonenv,
+                kind           = 'coefmodel',
+                local          = 'COEF_MODEL.BIN',
             )
             #-------------------------------------------------------------------------------
             self._wrapped_input(
@@ -118,6 +163,16 @@ class MinimNoVARBC(Task, DavaiIALTaskMixin, IncludesTaskMixin):
                 stat           = 'bal,cv',
             )
             #-------------------------------------------------------------------------------
+            self._wrapped_input(
+                role           = 'IoassignScripts',
+                format         = 'ascii',
+                genv           = self.conf.commonenv,
+                kind           = 'ioassign_script',
+                language       = 'ksh',
+                local          = '[purpose]_ioassign',
+                purpose        = 'create,merge',
+            )
+            #-------------------------------------------------------------------------------
 
         # 1.1.2/ Static Resources (namelist(s) & config):
         if 'early-fetch' in self.steps or 'fetch' in self.steps:
@@ -129,7 +184,7 @@ class MinimNoVARBC(Task, DavaiIALTaskMixin, IncludesTaskMixin):
                 kind           = 'config',
                 local          = 'oops.[format]',
                 nativefmt      = '[format]',
-                objects        = 'minim-3DVar_aro',
+                objects        = 'screening3D_aro',
                 scope          = 'oops',
             )
             #-------------------------------------------------------------------------------
@@ -175,7 +230,7 @@ class MinimNoVARBC(Task, DavaiIALTaskMixin, IncludesTaskMixin):
                 genv           = self.conf.appenv,
                 kind           = 'namelist',
                 local          = 'namelist_[object]',
-                object         = ['gom_setup_0', 'gom_setup_hres'],  #, 'jb_cov'
+                object         = ['gom_setup_0', 'gom_setup_hres'], #, 'gom_setup'
                 source         = 'objects/naml_[object]',
             )
             #-------------------------------------------------------------------------------
@@ -192,25 +247,11 @@ class MinimNoVARBC(Task, DavaiIALTaskMixin, IncludesTaskMixin):
                 source         = 'objects/naml_[object]',
             )
             #-------------------------------------------------------------------------------
-            self._wrapped_input(
-                role           = 'OOPSWriteObjectsNamelists',
-                binary         = 'arome',
-                format         = 'ascii',
-                intent         = 'inout',
-                genv           = self.conf.appenv,
-                kind           = 'namelist',
-                local          = 'naml_[object]',
-                hook_write     = (hook_gnam, {'NAMOOPSWRITE':{'CDMEXP':'MXMINI'}}),
-                object         = ['write_analysis_aro'],
-                source         = 'objects/naml_[object]',
-            )
-            #-------------------------------------------------------------------------------
             tbnam_leftovers = self._wrapped_input(
                 role           = 'NamelistLeftovers',
                 binary         = 'arome',
                 format         = 'ascii',
                 genv           = self.conf.appenv,
-                hook_cvaraux   = (hook_gnam, {'NAMVAR':{'LVARBC':False, 'LTOVSCV':False}}),
                 intent         = 'inout',
                 kind           = 'namelist',
                 local          = 'fort.4',
@@ -220,6 +261,11 @@ class MinimNoVARBC(Task, DavaiIALTaskMixin, IncludesTaskMixin):
 
         # 1.1.3/ Static Resources (executables):
         if 'early-fetch' in self.steps or 'fetch' in self.steps:
+            tbio = self.flow_executable(
+                kind           = 'odbioassign',
+                local          = 'ioassign.x',
+            )
+            #-------------------------------------------------------------------------------
             tbx = self.flow_executable(
                 kind           = 'oopsbinary',
                 run            = 'oovar',
@@ -227,8 +273,27 @@ class MinimNoVARBC(Task, DavaiIALTaskMixin, IncludesTaskMixin):
             )
             #-------------------------------------------------------------------------------
 
-        # 1.2/ Flow Resources (initial): theoretically flow-resources, but statically stored in input_shelf
+        # 1.2/ Initial Flow Resources: theoretically flow-resources, but statically stored in input_shelf
         if 'early-fetch' in self.steps or 'fetch' in self.steps:
+            self._wrapped_input(
+                role           = 'BackgroundStdError',
+                block          = 'sigmab',
+                date           = '{}/-{}'.format(self.conf.rundate, 'PT6H'),  # FIXME: should be sthg like: self.conf.cyclestep),
+                experiment     = self.conf.input_shelf,
+                format         = 'grib',
+                geometry       = 'globalupd224',
+                kind           = 'bgstderr',
+                local          = 'errgrib.[variable]',          # FIXME : workaround in cy49T2
+                variable       = 'u,v,t,q,r,lnsp,gh,btmp,vo',   # to avoid using epygram (no grib support in cy49)
+                #local          = 'errgrib.',
+                #hook_split     = ('common.util.usepygram.split_errgrib_on_shortname'),
+                model          = 'arpege',
+                stage          = 'scr',
+                term           = 'PT6H',  # FIXME: should be sthg like: self.conf.cyclestep,
+                vapp           = self.conf.shelves_vapp,
+                vconf          = self.conf.shelves_vconf,
+            )
+            #-------------------------------------------------------------------------------
             self._wrapped_input(
                 role           = 'Guess',
                 block          = 'cplguess',
@@ -242,20 +307,43 @@ class MinimNoVARBC(Task, DavaiIALTaskMixin, IncludesTaskMixin):
                 vconf          = self.conf.shelves_vconf,
             )
             #-------------------------------------------------------------------------------
+            self._wrapped_input(
+                role           = 'VarBC',
+                block          = 'observations',
+                experiment     = self.conf.input_shelf,
+                format         = 'ascii',
+                intent         = 'inout',
+                kind           = 'varbc',
+                local          = 'VARBC.cycle',
+                stage          = 'merge',
+                vapp           = self.conf.shelves_vapp,
+                vconf          = self.conf.shelves_vconf,
+            )
+            #-------------------------------------------------------------------------------
 
         # 2.1/ Flow Resources: produced by another task of the same job
         if 'fetch' in self.steps:
+            tbmap = self._wrapped_input(
+                role           = 'Obsmap',
+                block          = self.obs_input_block(),
+                experiment     = self.conf.xpid,
+                format         = 'ascii',
+                kind           = 'obsmap',
+                local          = 'bator_map',
+                stage          = 'build',
+            )
+            #-------------------------------------------------------------------------------
             self._wrapped_input(
                 role           = 'Observations',
                 block          = self.obs_input_block(),
                 experiment     = self.conf.xpid,
                 format         = 'odb',
                 intent         = 'inout',
+                helper         = tbmap[0].contents,
                 kind           = 'observations',
-                layout         = 'ccma',
-                local          = 'CCMA',
-                part           = 'mix',
-                stage          = 'screening',
+                local          = 'ECMA.[part]',
+                part           = tbmap[0].contents.odbset(),
+                stage          = 'build',
             )
             #-------------------------------------------------------------------------------
 
@@ -267,7 +355,11 @@ class MinimNoVARBC(Task, DavaiIALTaskMixin, IncludesTaskMixin):
                 crash_witness  = True,
                 drhookprof     = self.conf.drhook_profiling,
                 engine         = 'parallel',
-                kind           = 'oominim',
+                iomethod       = '4',
+                kind           = 'ooanalysis',
+                npool          = self.conf.obs_npools,
+                slots          = self.obs_tslots,
+                withscreening  = True,                
             )
             print(self.ticket.prompt, 'tbalgo =', tbalgo)
             print()
@@ -279,7 +371,7 @@ class MinimNoVARBC(Task, DavaiIALTaskMixin, IncludesTaskMixin):
         # 2.3/ Flow Resources: produced by this task and possibly used by a subsequent flow-dependant task
         if 'backup' in self.steps:
             self._wrapped_output(
-                role           = 'Observations',
+                role           = 'Observations # CCMA',
                 block          = self.output_block(),
                 experiment     = self.conf.xpid,
                 format         = 'odb',
@@ -287,18 +379,30 @@ class MinimNoVARBC(Task, DavaiIALTaskMixin, IncludesTaskMixin):
                 layout         = 'ccma',
                 local          = '[layout:upper]',
                 part           = 'mix',
-                stage          = 'minim',
+                stage          = 'screening',
             )
             #-------------------------------------------------------------------------------
             self._wrapped_output(
-                role           = 'Analysis',
+                role           = 'Observations # ALL',
                 block          = self.output_block(),
                 experiment     = self.conf.xpid,
-                format         = 'fa',
-                kind           = 'analysis',
-                local          = 'ICMSHMXMI+0000',
-                namespace      = self.REF_OUTPUT,
+                format         = 'odb',
+                kind           = 'observations',
+                local          = 'ECMA.{glob:ext:\w+}',
+                part           = '[glob:ext]',
+                stage          = 'screening',
             )
+            #-------------------------------------------------------------------------------
+            self._wrapped_output(
+                role           = 'VarBC # OUT',
+                block          = self.output_block(),
+                experiment     = self.conf.xpid,
+                format         = 'ascii',
+                kind           = 'varbc',
+                local          = 'VARBC.cycle',
+                stage          = 'screening',
+            )
+            #-------------------------------------------------------------------------------
 
         # 3.0.1/ Davai expertise:
         if 'late-backup' in self.steps or 'backup' in self.steps:

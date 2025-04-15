@@ -48,40 +48,52 @@ class AnalyseLAM3D(Task, DavaiIALTaskMixin, IncludesTaskMixin):
         if 'early-fetch' in self.steps or 'fetch' in self.steps:
             self._load_usual_tools()  # LFI tools, ecCodes defs, ...
             #-------------------------------------------------------------------------------
-            # FIXME: not anymore in Arpege cycle / commonenv
             self._wrapped_input(
                 role           = 'GetIREmisAtlasInHDF',
                 format         = 'ascii',
-                #genv           = self.conf.commonenv,
-                genv           = self.conf.davaienv,
-                instrument     = '[targetname]',
+                genv           = self.conf.commonenv,
+                source         = 'uwir',
                 kind           = 'atlas_emissivity',
                 local          = 'uw_ir_emis_atlas_hdf5.tar',
-                targetname     = 'iasi',
             )
             #-------------------------------------------------------------------------------
-            # FIXME: not anymore in Arpege cycle / commonenv
             self._wrapped_input(
-                role           = 'RCorrelations(MF)',
+                role           = 'TelsemEmisAtlas',
                 format         = 'unknown',
-                #genv           = self.conf.commonenv,
-                genv           = self.conf.davaienv,
-                kind           = 'correl',
-                local          = '[scope]_correlation.dat',
-                scope          = 'iasi,cris',
+                source         = 'telsem',
+                genv           = self.conf.commonenv,
+                kind           = 'atlas_emissivity',
+                local          = 'telsem2_mw_atlas.tgz',
             )
             #-------------------------------------------------------------------------------
-            # FIXME: not anymore in Arpege cycle / commonenv
+            self._wrapped_input(
+                role           = 'MwaveRtCoef',
+                format         = 'unknown',
+                genv           = self.conf.appenv,
+                kind           = 'mwave_rtcoef',
+                local          = 'mwave_resources.tgz',
+            )
+            #-------------------------------------------------------------------------------
             self._wrapped_input(
                 role           = 'AtlasEmissivity',
                 format         = 'unknown',
-                #genv           = self.conf.commonenv,
-                genv           = self.conf.davaienv,
+                genv           = self.conf.commonenv,
                 instrument     = '[targetname]',
                 kind           = 'atlas_emissivity',
                 local          = 'ATLAS_[targetname:upper].BIN',
                 month          = self.conf.rundate,
-                targetname     = 'ssmis,iasi,an1,an2,seviri',
+                targetname     = 'ssmis,iasi,an1,an2',
+            )
+            #-------------------------------------------------------------------------------
+            self._wrapped_input(
+                role           = 'AtlasEmissivitySeviri',
+                format         = 'unknown',
+                genv           = self.conf.appenv,
+                instrument     = '[targetname]',
+                kind           = 'atlas_emissivity',
+                local          = 'ATLAS_[targetname:upper].BIN',
+                month          = self.conf.rundate,
+                targetname     = 'seviri',
             )
             #-------------------------------------------------------------------------------
             self._wrapped_input(
@@ -189,7 +201,7 @@ class AnalyseLAM3D(Task, DavaiIALTaskMixin, IncludesTaskMixin):
             #-------------------------------------------------------------------------------
             self._wrapped_input(
                 role           = 'OOPSObjectsNamelists',
-                binary         = 'arome',
+                binary         = self.conf.model,
                 format         = 'ascii',
                 intent         = 'inout',
                 genv           = self.conf.appenv,
@@ -201,7 +213,7 @@ class AnalyseLAM3D(Task, DavaiIALTaskMixin, IncludesTaskMixin):
             #-------------------------------------------------------------------------------
             self._wrapped_input(
                 role           = 'OOPSObsObjectsNamelists',
-                binary         = 'arome',
+                binary         = self.conf.model,
                 format         = 'ascii',
                 intent         = 'inout',
                 genv           = self.conf.appenv,
@@ -213,7 +225,7 @@ class AnalyseLAM3D(Task, DavaiIALTaskMixin, IncludesTaskMixin):
             #-------------------------------------------------------------------------------
             self._wrapped_input(
                 role           = 'OOPSGomNamelists',
-                binary         = 'arome',
+                binary         = self.conf.model,
                 format         = 'ascii',
                 genv           = self.conf.appenv,
                 kind           = 'namelist',
@@ -224,7 +236,7 @@ class AnalyseLAM3D(Task, DavaiIALTaskMixin, IncludesTaskMixin):
             #-------------------------------------------------------------------------------
             self._wrapped_input(
                 role           = 'OOPSModelObjectsNamelists',
-                binary         = 'arome',
+                binary         = self.conf.model,
                 format         = 'ascii',
                 genv           = self.conf.appenv,
                 intent         = 'inout',
@@ -250,7 +262,7 @@ class AnalyseLAM3D(Task, DavaiIALTaskMixin, IncludesTaskMixin):
             #-------------------------------------------------------------------------------
             tbnam_leftovers = self._wrapped_input(
                 role           = 'NamelistLeftovers',
-                binary         = 'arome',
+                binary         = self.conf.model,
                 format         = 'ascii',
                 genv           = self.conf.appenv,
                 intent         = 'inout',
@@ -284,11 +296,13 @@ class AnalyseLAM3D(Task, DavaiIALTaskMixin, IncludesTaskMixin):
                 format         = 'grib',
                 geometry       = 'globalupd224',
                 kind           = 'bgstderr',
-                local          = 'errgrib.[variable]',
+                local          = 'errgrib.[variable]',          # FIXME : workaround in cy49T2
+                variable       = 'u,v,t,q,r,lnsp,gh,btmp,vo',   # to avoid using epygram (no grib support in cy49)
+                #local          = 'errgrib.',
+                #hook_split     = ('common.util.usepygram.split_errgrib_on_shortname'),
                 model          = 'arpege',
                 stage          = 'scr',
                 term           = 'PT6H',  # FIXME: should be sthg like: self.conf.cyclestep,
-                variable       = 'u,v,t,q,r,lnsp,gh,btmp,vo',
                 vapp           = self.conf.shelves_vapp,
                 vconf          = self.conf.shelves_vconf,
             )
@@ -306,17 +320,15 @@ class AnalyseLAM3D(Task, DavaiIALTaskMixin, IncludesTaskMixin):
                 vconf          = self.conf.shelves_vconf,
             )
             #-------------------------------------------------------------------------------
-            # FIXME: not consistent with oper arome (merge_varbc)
             self._wrapped_input(
                 role           = 'VarBC',
-                block          = 'minim',
-                date           = '{}/-{}'.format(self.conf.rundate, self.conf.cyclestep),
+                block          = 'observations',
                 experiment     = self.conf.input_shelf,
                 format         = 'ascii',
                 intent         = 'inout',
                 kind           = 'varbc',
                 local          = 'VARBC.cycle',
-                stage          = 'traj',
+                stage          = 'merge',
                 vapp           = self.conf.shelves_vapp,
                 vconf          = self.conf.shelves_vconf,
             )

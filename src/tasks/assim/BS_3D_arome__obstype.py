@@ -9,8 +9,8 @@ import vortex
 from vortex import toolbox
 from vortex.layout.nodes import Driver, Family, LoopFamily
 
-from .raw2odb.batodb import BatorODB
-from .screenings.screening_LAM3D import Screening
+from .raw2odb.batodbLAM import BatorODB
+from .screenings.screeningOOPS_LAM3D import ScreeningOOPS
 
 
 def setup(t, **kw):
@@ -24,7 +24,7 @@ def setup(t, **kw):
                         nodes=[
                         Family('BSM', ticket=t, on_error='delayed_fail', nodes=[
                             BatorODB(tag='batodb', ticket=t, **kw),
-                            Screening(tag='screening', ticket=t, **kw),
+                            ScreeningOOPS(tag='screeningOOPS', ticket=t, **kw),
                             ], **kw),
                         ], **kw),
                     ], **kw),
